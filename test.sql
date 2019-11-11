@@ -39,8 +39,15 @@ ALTER TYPE public.ci_job_status OWNER TO postgres;
 CREATE FUNCTION public.ci_jobs_status_notify() RETURNS trigger
     LANGUAGE plpgsql
     AS $$
+DECLARE
+    payload varchar;
+    mid uuid; 
 BEGIN
-PERFORM pg_notify('ci_jobs_status_channel', NEW.id::text);
+ select * into mid from ci_jobs where status='initializing';
+    payload = CAST(NEW.id AS text) ||
+    ',' || CAST(NEW.jobname AS text) ||  ',' || CAST(NEW.status AS text) ||
+     ',' || CAST(NEW.status_change_time AS text);
+PERFORM pg_notify('ci_jobs_status_channel', payload);
 RETURN NEW;
 END;
 $$;
@@ -89,6 +96,20 @@ ALTER SEQUENCE public.ci_jobs_id_seq OWNED BY public.ci_jobs.id;
 
 
 --
+-- Name: mid; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE public.mid (
+    id integer,
+    jobname character varying(256),
+    status public.ci_job_status,
+    status_change_time timestamp without time zone
+);
+
+
+ALTER TABLE public.mid OWNER TO postgres;
+
+--
 -- Name: ci_jobs id; Type: DEFAULT; Schema: public; Owner: postgres
 --
 
@@ -101,6 +122,15 @@ ALTER TABLE ONLY public.ci_jobs ALTER COLUMN id SET DEFAULT nextval('public.ci_j
 
 COPY public.ci_jobs (id, jobname, status, status_change_time) FROM stdin;
 1	job1	new	2019-11-08 14:23:59.423696
+\.
+
+
+--
+-- Data for Name: mid; Type: TABLE DATA; Schema: public; Owner: postgres
+--
+
+COPY public.mid (id, jobname, status, status_change_time) FROM stdin;
+1	job1	initializing	2019-11-08 14:23:59.423696
 \.
 
 

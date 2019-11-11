@@ -5,6 +5,8 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
+	"os"
+	"strings"
 	"time"
 
 	"github.com/lib/pq"
@@ -35,15 +37,6 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	defer db.Close()
-	rows, _ := db.Query("SELECT * FROM ci_jobs")
-	for rows.Next() {
-		var row1 DBRow
-		if err := rows.Scan(&row1.id, &row1.jobname, &row1.status, &row1.status_change_time); err != nil {
-			log.Fatal(err)
-		}
-		fmt.Printf("%s %s %s %s\n", row1.id, row1.jobname, row1.status, row1.status_change_time)
-	}
 
 	// tryPickupJob := make(chan interface{})
 	//equivalent to 'LISTEN ci_jobs_status_channel;'
@@ -59,23 +52,44 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	for {
-		waitForNotification(listener)
-		// _, err := db.Query("UPDATE ci_jobs SET status = 'new' ")
-		// if err != nil {
-		// 	panic(err)
-		// }
+	for i := 0; i < 3; i++ {
+		waitForNotification(listener, db)
+		_, err := db.Query("UPDATE ci_jobs SET status = 'new'; ")
+		if err != nil {
+			panic(err)
+		}
+	}
+	fmt.Println("close db connection")
+	db.Close()
+	err = db.Ping()
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
 	}
 } //main
-func waitForNotification(l *pq.Listener) {
+func waitForNotification(l *pq.Listener, db *sql.DB) {
 	select {
-	case <-l.Notify:
-		fmt.Println("received notification, new work available")
-	case <-time.After(5 * time.Second):
+	case n := <-l.Notify:
+		fmt.Println("received notification")
+		res := strings.Split(n.Extra, ",")
+		fmt.Printf("%s %s \n", res[1], res[3])
+
+		// queryDB(db)
+	case <-time.After(2 * time.Second):
 		go l.Ping()
 		// Check if there's more work available, just in case it takes
 		// a while for the Listener to notice connection loss and
 		// reconnect.
-		fmt.Println("received no work for 90 seconds, checking for new work")
+		fmt.Println("received no work for x seconds, checking for new work")
+	}
+}
+func queryDB(db *sql.DB) {
+	rows, _ := db.Query("SELECT * FROM ci_jobs")
+	for rows.Next() {
+		var row1 DBRow
+		if err := rows.Scan(&row1.id, &row1.jobname, &row1.status, &row1.status_change_time); err != nil {
+			log.Fatal(err)
+		}
+		fmt.Printf("%s %s %s %s\n", row1.id, row1.jobname, row1.status, row1.status_change_time)
 	}
 }
