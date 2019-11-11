@@ -41,7 +41,7 @@ CREATE FUNCTION public.ci_jobs_status_notify() RETURNS trigger
     AS $$
 DECLARE
     payload varchar;
-    mid uuid; 
+    mid INTEGER; 
 BEGIN
  select * into mid from ci_jobs where status='initializing';
     payload = CAST(NEW.id AS text) ||
@@ -121,7 +121,7 @@ ALTER TABLE ONLY public.ci_jobs ALTER COLUMN id SET DEFAULT nextval('public.ci_j
 --
 
 COPY public.ci_jobs (id, jobname, status, status_change_time) FROM stdin;
-1	job1	new	2019-11-08 14:23:59.423696
+1	job1	initializing	2019-11-08 14:23:59.423696
 \.
 
 

@@ -54,7 +54,7 @@ func main() {
 	}
 	for i := 0; i < 3; i++ {
 		waitForNotification(listener, db)
-		_, err := db.Query("UPDATE ci_jobs SET status = 'new'; ")
+		_, err := db.Query("UPDATE ci_jobs SET status='initializing' WHERE id = (SELECT id FROM ci_jobs WHERE status='new' ORDER BY id FOR UPDATE SKIP LOCKED LIMIT 1) RETURNING *; ")
 		if err != nil {
 			panic(err)
 		}
